@@ -1,0 +1,12 @@
+#include <iostream>
+#include <string.h>
+
+int main()
+{
+char ch(1);
+int i(ch);
+char chl(6);
+int j(-chl);
+std::cout << i+j <<std::endl;
+return 0;
+}
