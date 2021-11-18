@@ -1,0 +1,136 @@
+:imagesdir: Images
+:toc:
+:toc-title: Оглавление
+
+[.text-center]
+МИНИСТЕРСТВО НАУКИ И ВЫСШЕГО ОБРАЗОВАНИЯ РОССИЙСКОЙ ФЕДЕРАЦИИ +
+Федеральное государственное автономное образовательное учреждение высшего образования +
+«Южно-Уральский государственный университет» +
+(национальный исследовательский университет) +
+Высшая школа электроники и компьютерных наук +
+Кафедра «Информационно-измерительная техника»
+
+[.text-center]
+
+Отчет по лабораторной работе №5
+
+[.text-right]
+Выполнили: +
+студенты группы КЭ-415 +
+Кабаков Д.Э. +
+Каримов К.А.
+
+
+== Задание к работе
+    а. Написать программу, которая по нажатию на User Button зажигает все (4) светодиоды, по следующему нажатию тушит все (4) светодиоды
+Нужно настроить правильно порты, на Вход, Medium Speed, без подтяжек, подтяжка на кнопку есть внешняя, поэтому внутренняя не нужна.
+
+== Написание программы для реализации зажигания светодиодов по нажатию кнопки
+Через регистр RCC_CR задаем системную частоту с внешнего модуля HSE. Чтобы включить HSE, необходимо перевести бит HSEON в единицу (рисунок 1).
+
+image::dXFr_5BJ7cs.jpg[]
+
+Рисунок 1 - Задание системной частоты
+
+Подключим порт А к шине тактирования через регистр RCC_AHB1ENR (рисунок 2).
+
+image::TU6XidQ2Ac8.jpg[]
+
+Рисунок 2 - Подключение порта
+
+Для нашей работы достаточно установить скорость по умолчанию(Low Speed).
+Подтяжка резистора осуществляется на 5 линию порта, чтобы не было переходов из за помех. Подтяжка обычно делается к 0 или к 1. Устанавливаем в бите значение 10 (Pull-down).
+
+image::dfcpo2bSSQM.jpg[]
+
+Рисунок 3 - Установка значения
+
+Напишем программу, которая зажигает светодиоды по нажатию кнопки.
+
+Также подключим библиотеки "gpioaregisters.hpp" и "gpiocregisters.hpp" для того, чтобы зажигались все светодиоды.
+
+Результат представлен ниже.
+
+[source, c]
+#include <rccregisters.hpp> // for RCC
+#include <gpiocregisters.hpp> //for GPIOC
+#include <gpioaregisters.hpp> //for GPIOA
+#include "Ledd.h" // for LED
+#include "Button.h" //for button
+std::uint32_t SystemCoreClock = 16'000'000U;
+extern "C"
+{
+int __low_level_init(void)
+    {
+        //Switch on external 16 MHz oscillator
+        RCC::CR::HSEON::On::Set();
+        while (RCC::CR::HSERDY::NotReady::IsSet())
+        {
+        }
+        //Switch system clock on external oscillator
+        RCC::CFGR::SW::Hse::Set();
+        while (!RCC::CFGR::SWS::Hse::IsSet())
+        {
+        }
+        RCC::AHB1ENR::GPIOAEN::Enable::Set();
+        RCC::AHB1ENR::GPIOCEN::Enable::Set();
+        GPIOA::OSPEEDR::OSPEEDR5::LowSpeed::Set();
+        GPIOA::PUPDR::PUPDR5::PullUp::Set();
+        GPIOA::OTYPER::OT5::OutputPushPull::Set();
+        GPIOA::MODER::MODER5::Output::Set();
+        GPIOC::OSPEEDR::OSPEEDR5::LowSpeed::Set();
+        GPIOC::PUPDR::PUPDR5::PullUp::Set();
+        GPIOC::OTYPER::OT5::OutputPushPull::Set();
+        GPIOC::MODER::MODER5::Output::Set();
+        GPIOC::OSPEEDR::OSPEEDR8::LowSpeed::Set();
+        GPIOC::PUPDR::PUPDR8::PullUp::Set();
+        GPIOC::OTYPER::OT8::OutputPushPull::Set();
+        GPIOC::MODER::MODER8::Output::Set();
+        GPIOC::OSPEEDR::OSPEEDR9::LowSpeed::Set();
+        GPIOC::PUPDR::PUPDR9::PullUp::Set();
+        GPIOC::OTYPER::OT9::OutputPushPull::Set();
+        GPIOC::MODER::MODER9::Output::Set();
+        GPIOC::OSPEEDR::OSPEEDR13::MediumSpeed::Set();
+        GPIOC::MODER::MODER13::Input::Set();
+      return 1;
+    }
+}
+Led<GPIOC, 5> led1;
+Led<GPIOA, 5> led2;
+Led<GPIOC, 8> led3;
+Led<GPIOC, 9> led4;
+Button userButton;
+
+int main()
+{
+for(;;)
+{
+if(userButton.IsPressed())
+{
+led1.Toggle();
+led2.Toggle();
+led3.Toggle();
+led4.Toggle();
+//delay(100000);
+}
+}
+return 1;
+}
+
+== Подключение платы к компьютеру
+Подключим отладчик к плате, и подключим плату к компьютеру. Результат представлен на рисунке 4.
+
+image::image-2021-09-30-23-18-52-173.png[]
+
+Рисунок 4 - Подключенная плата
+
+Светодиод на отладчике горит красным, что говорит нам о том, что плата не прошита.
+
+== Прошивка платы
+
+Успешно прошиваем плату. Можем убедиться в этом, увидев одновременно горящие светодиоды на плате.
+Результат представлен на рисунке 5.
+
+image::IMG_0439.gif[]
+
+Рисунок 5 - Прошитая плата
