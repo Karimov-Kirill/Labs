@@ -1,0 +1,297 @@
+:imagesdir: Images
+:toc:
+:toc-title: Оглавление
+
+[.text-center]
+МИНИСТЕРСТВО НАУКИ И ВЫСШЕГО ОБРАЗОВАНИЯ РОССИЙСКОЙ ФЕДЕРАЦИИ +
+Федеральное государственное автономное образовательное учреждение высшего образования +
+«Южно-Уральский государственный университет» +
+(национальный исследовательский университет) +
+Высшая школа электроники и компьютерных наук +
+Кафедра «Информационно-измерительная техника»
+
+[.text-center]
+
+Отчет по лабораторной работе №11
+
+[.text-right]
+Выполнили: +
+студенты группы КЭ-415 +
+Кабаков Д.Э. +
+Каримов К.А.
+
+
+== Задание к работе
+    а. Написать программу, позволяющую моргать светодиодами. Программу написать с использованием операционных систем реального времени.
+
+== Написание программы
+
+Дадим определение понятию "Операционные системы реального времени" или "Real Time Operating Systems".
+
+Операционные системы реального времени (ОСРВ(RTOS)) предназначены для обеспечения интерфейса к ресурсам критических по времени систем реального времени. Основной задачей в таких системах является своевременность (timeliness) выполнения обработки данных".
+Задачей ОСРВ является обеспечение реакции на определенное действие за отведенный квант времени.
+Для разных задач такой квант может иметь разное значение, например, для обработки. Приблизительное время реакции в зависимости от области применения ОСРВ может быть следующее:
+Математическое моделирование - несколько микросекунд.
+
+Радиолокация - несколько миллисекунд.
+
+Складской учет - несколько секунд.
+
+Управление производством - несколько минут.
+
+image::image-2022-02-23-14-26-15-766.png[]
+
+Рисунок 1 - Принцип работы операционных систем реального времени
+
+Подключим библиотеку rtos.hpp, чтобы работать с RTOS.
+
+[source, c]
+#include "rtos.hpp"         // for Rtos
+
+Графически отобразим структуру в StarUML. Структура показана на рисунке 2.
+
+image::23.02.2022 (1).jpg[]
+
+Рисунок 2 - Структура в программе StarUML
+
+== Назначение классов
+
+=== Класс ledtask.h
+
+Класс ledtask.h предназначен для того, чтобы описать переменные для ledtask.cpp.
+
+Код представлен ниже.
+
+[source, c]
+#pragma once
+#include "thread.hpp" //for Thread
+#include "event.hpp"  //for Event
+#include "mailbox.hpp" //for MailBox
+class LedTask: public OsWrapper::Thread<100>
+{
+public:
+LedTask(OsWrapper::MailBox<int, 1>& mailBox): buttonMailBox(mailBox)
+{
+}
+void Execute() override;
+private:
+OsWrapper::MailBox<int, 1>& buttonMailBox;
+int myMessage = 1;
+};
+
+=== Класс ledtask.cpp
+
+Класс ledtask.cpp предназначен для того, чтобы описать метод Executive, который, в свою очередь, проверяет нажатие кнопки, и если данное событие происходит, то зажигает два светодиода, а после усыпляет на 111 мс с помощью команды Sleep.
+
+Код представлен ниже.
+
+[source, c]
+#include "ledtask.h"
+#include "gpiocregisters.hpp" //for GPIOC
+void LedTask::Execute()
+{
+for(;;)
+{
+if(buttonMailBox.Get(myMessage, 500))
+{
+GPIOC::ODR::Toggle(1 << 9);
+GPIOC::ODR::Toggle(1 << 5);
+}
+Sleep(111ms);
+}
+}
+
+=== Класс myfirsttask.h
+
+Класс myfirsttask.h предназначен для того, чтобы наследовать класс Thread с методом Execute.
+
+Код представлен ниже.
+
+[source, c]
+#pragma once
+#include "thread.hpp" //for Thread
+class MyFirstTask: public OsWrapper::Thread<200>
+{
+public:
+void Execute() override;
+};
+
+=== Класс myfirsttask.cpp
+
+Класс myfirsttask.cpp предназначен для того, чтобы описать метод Execute, который, в свою очередь, зажигает светодиод, а потом усыпляет на 111 мс.
+
+Код представлен ниже.
+
+[source, c]
+#include "myfirsttask.h"
+#include "gpiocregisters.hpp"
+void MyFirstTask::Execute()
+{
+for(;;)
+{
+GPIOC::ODR::Toggle(1 << 8);
+Sleep(111ms);
+}
+}
+
+=== Класс mysecondtask.h
+
+Класс mysecondtask.h предназначен для того, чтобы наследовать класс Thread с методом Execute.
+
+Код представлен ниже.
+
+[source, c]
+#pragma once
+#include "thread.hpp" //for Thread
+class MySecondTask: public OsWrapper::Thread<200>
+{
+public:
+void Execute() override;
+};
+
+=== Класс mysecondtask.cpp
+
+Класс mysecondtask.cpp предназначен для того, чтобы описать метод Execute, который, в свою очередь, зажигает два светодиода, а потом засыпает на 1500 мс.
+
+Код представлен ниже.
+
+[source, c]
+#include "mysecondtask.h"
+#include "gpiocregisters.hpp"
+void MySecondTask::Execute()
+{
+for(;;)
+{
+GPIOC::ODR::Toggle(1 << 8);
+GPIOC::ODR::Toggle(1 << 9);
+SleepUntil(1500ms);
+}
+}
+
+=== Класс buttontask.h
+
+Класс buttontask.h предназначен для того, чтобы наследовать класс Thread, а также посылать сообщение о нажатии кнопки с помощью MailBox.
+
+Код представлен ниже.
+
+[source, c]
+#pragma once
+#include "thread.hpp" //for Thread
+#include "event.hpp" //for Event
+#include "mailbox.hpp" //for MailBox
+class ButtonTask: public OsWrapper::Thread<100>
+{
+public:
+ButtonTask(OsWrapper::MailBox<int, 1>& mailBox): buttonMailBox(mailBox)
+{
+}
+void Execute() override;
+private:
+OsWrapper::MailBox<int, 1>& buttonMailBox;
+int myMessage = 1;
+};
+
+=== Класс buttontask.cpp
+
+Класс buttontask.cpp предназначен для того, чтобы проверить нажатие кнопки и, если данное событие произошло, записать его в buttontask.h с помощью переменной Put(myMessage) (дословно - "положить мое сообщение"), а затем усыпить на 111 мс.
+
+Код представлен ниже.
+
+[source, c]
+#include "buttontask.h"
+#include "gpiocregisters.hpp" //for GPIOC
+void ButtonTask::Execute()
+{
+for(;;)
+{
+if(GPIOC::IDR::IDR13::Low::IsSet())
+{
+buttonMailBox.Put(myMessage);
+}
+Sleep(111ms);
+}
+}
+
+=== Класс main.cpp
+
+Класс main.cpp предназначен для того, чтобы подключить все библиотеки и создать классы.
+
+Код представлен ниже.
+
+[source, c]
+#include "rtos.hpp"         // for Rtos
+#include "mailbox.hpp"      // for Mailbox
+#include "event.hpp"        // for Event
+#include "mytask.hpp"       // for MyTask
+#include "led1task.hpp"     // for Led1Task
+#include "myfirsttask.h"    // for MyFirstTask
+#include "mysecondtask.h"   // for MySecondTask
+#include "buttontask.h"    // for ButtonTask
+#include "ledtask.h"    // for LedTask
+#include "rccregisters.hpp" // for RCC
+#include "Application/Diagnostic/GlobalStatus.hpp"
+#include <gpioaregisters.hpp>  // for GPIOA
+#include <gpiocregisters.hpp>  // for GPIOC
+std::uint32_t SystemCoreClock = 16'000'000U;
+extern "C" {
+int __low_level_init(void)
+{
+//Switch on external 16 MHz oscillator
+RCC::CR::HSION::On::Set();
+while (RCC::CR::HSIRDY::NotReady::IsSet())
+{
+  }
+  //Switch system clock on external oscillator
+  RCC::CFGR::SW::Hsi::Set();
+  while (!RCC::CFGR::SWS::Hsi::IsSet())
+ {
+  }
+  //Switch on clock on PortA and PortC
+  RCC::AHB1ENRPack<
+      RCC::AHB1ENR::GPIOCEN::Enable,
+      RCC::AHB1ENR::GPIOAEN::Enable
+  >::Set();
+  RCC::APB2ENR::SYSCFGEN::Enable::Set();
+  //LED1 on PortA.5, set PortA.5 as output
+  GPIOA::MODER::MODER5::Output::Set();
+  /* LED2 on PortC.9, LED3 on PortC.8, LED4 on PortC.5 so set PortC.5,8,9 as output */
+  GPIOC::MODERPack<
+      GPIOC::MODER::MODER5::Output,
+      GPIOC::MODER::MODER8::Output,
+      GPIOC::MODER::MODER9::Output
+  >::Set();
+  return 1;
+}
+}
+OsWrapper::MailBox<int, 1> buttonMailBox;
+ButtonTask buttonTask(buttonMailBox);
+LedTask ledTask(buttonMailBox);
+MyFirstTask myFirstTask;
+MySecondTask mySecondTask;
+int main()
+{
+using namespace OsWrapper;
+  Rtos::CreateThread(myFirstTask, "MyFirstTask", ThreadPriority::highest);
+  Rtos::CreateThread(buttonTask, "ButtonTask", ThreadPriority::normal);
+  Rtos::CreateThread(ledTask, "LedTask", ThreadPriority::normal);
+  Rtos::Start();
+  return 0;
+}
+
+== Подключение платы к компьютеру
+Подключим отладчик к плате, и подключим плату к компьютеру. Результат представлен на рисунке 3.
+
+image::image-2021-09-30-23-18-52-173.png[]
+
+Рисунок 3 - Подключенная плата
+
+Светодиод на отладчике горит красным, что говорит нам о том, что плата не прошита.
+
+== Прошивка платы
+
+Успешно прошиваем плату. Можем убедиться в этом, увидев моргающие светодиоды на плате.
+Результат представлен на рисунке 4.
+
+image::video.gif[]
+
+Рисунок 4 - Прошитая плата
